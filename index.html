@@ -1,0 +1,421 @@
+<!-- Vibration monitoring dashboard -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+
+<style>
+:root{
+  --bg:#F4F6F8; --surface:#FFFFFF; --surface-2:#FAFBFC;
+  --ink:#151A21; --ink-2:#5B6472; --ink-3:#8992A0;
+  --line:#E1E5EA; --line-strong:#CBD1D8;
+  --x-axis:#D64545; --y-axis:#2E86AB; --z-axis:#0E9C86;
+  --ok:#1E8E5A; --ok-bg:#E8F5EE;
+  --warn:#B4780F; --warn-bg:#FCF1DF;
+  --bad:#C0392B; --bad-bg:#FBEAE8;
+  --radius:10px;
+  --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono","SF Mono",Consolas,monospace;
+}
+:root:not([data-theme="light"]){
+  @media (prefers-color-scheme: dark){
+    --bg:#0F1216; --surface:#171B21; --surface-2:#1D222A;
+    --ink:#EDEFF2; --ink-2:#A7AFBB; --ink-3:#767F8C;
+    --line:#2A2F38; --line-strong:#3A404B;
+    --x-axis:#F0716A; --y-axis:#5FA8D6; --z-axis:#3FC2A9;
+    --ok:#4CBB86; --ok-bg:#122A1E;
+    --warn:#E0A83D; --warn-bg:#2E2410;
+    --bad:#E2685B; --bad-bg:#2E1613;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F1216; --surface:#171B21; --surface-2:#1D222A;
+  --ink:#EDEFF2; --ink-2:#A7AFBB; --ink-3:#767F8C;
+  --line:#2A2F38; --line-strong:#3A404B;
+  --x-axis:#F0716A; --y-axis:#5FA8D6; --z-axis:#3FC2A9;
+  --ok:#4CBB86; --ok-bg:#122A1E;
+  --warn:#E0A83D; --warn-bg:#2E2410;
+  --bad:#E2685B; --bad-bg:#2E1613;
+}
+*{box-sizing:border-box;}
+body{background:var(--bg);}
+.app{
+  display:grid;
+  grid-template-columns:220px 1fr;
+  min-height:600px;
+  font-family:var(--sans);
+  color:var(--ink);
+  background:var(--bg);
+}
+@media (max-width:720px){
+  .app{grid-template-columns:1fr;}
+  .sidebar{display:none;}
+  .sidebar.open{display:block;}
+}
+
+/* Sidebar */
+.sidebar{
+  background:var(--surface);
+  border-right:1px solid var(--line);
+  padding:20px 0;
+}
+.brand{
+  padding:0 20px 18px 20px;
+  border-bottom:1px solid var(--line);
+  margin-bottom:12px;
+}
+.brand-name{font-size:15px; font-weight:600; letter-spacing:-0.01em;}
+.brand-sub{font-size:12px; color:var(--ink-3); margin-top:2px;}
+.nav-label{
+  padding:4px 20px; font-size:11px; color:var(--ink-3);
+  text-transform:uppercase; letter-spacing:.04em; margin-top:8px;
+}
+.motor-item{
+  display:flex; align-items:center; gap:10px;
+  padding:10px 20px; cursor:pointer; border-left:2px solid transparent;
+  font-size:14px; color:var(--ink-2);
+}
+.motor-item:hover{background:var(--surface-2); color:var(--ink);}
+.motor-item.active{
+  background:var(--surface-2); color:var(--ink); font-weight:500;
+  border-left:2px solid var(--y-axis);
+}
+.status-dot{width:7px; height:7px; border-radius:50%; flex-shrink:0;}
+.status-dot.ok{background:var(--ok);}
+.status-dot.warn{background:var(--warn);}
+.status-dot.bad{background:var(--bad);}
+
+/* Main */
+.main{padding:24px 28px 40px; min-width:0;}
+.topbar{
+  display:flex; justify-content:space-between; align-items:flex-start;
+  margin-bottom:20px; gap:16px; flex-wrap:wrap;
+}
+.crumb{font-size:12px; color:var(--ink-3); margin-bottom:6px;}
+h1{font-size:24px; font-weight:600; letter-spacing:-0.01em; margin:0;}
+.sensor-tabs{display:flex; gap:6px; background:var(--surface-2); padding:3px; border-radius:8px; border:1px solid var(--line);}
+.sensor-tab{
+  padding:6px 14px; font-size:13px; border-radius:6px; cursor:pointer;
+  color:var(--ink-2); white-space:nowrap;
+}
+.sensor-tab.active{background:var(--surface); color:var(--ink); font-weight:500; box-shadow:0 1px 2px rgba(0,0,0,.06);}
+
+.stat-row{
+  display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:16px;
+}
+@media (max-width:720px){.stat-row{grid-template-columns:repeat(2,1fr);}}
+.stat-card{
+  background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
+  padding:14px 16px;
+}
+.stat-label{font-size:12px; color:var(--ink-3); margin-bottom:6px;}
+.stat-value{font-family:var(--mono); font-size:20px; font-weight:500;}
+.stat-sub{font-size:12px; color:var(--ink-2); margin-top:3px;}
+.pill{
+  display:inline-flex; align-items:center; gap:5px; padding:2px 9px 2px 7px;
+  border-radius:20px; font-size:12px; font-weight:500;
+}
+.pill.ok{background:var(--ok-bg); color:var(--ok);}
+.pill.warn{background:var(--warn-bg); color:var(--warn);}
+.pill.bad{background:var(--bad-bg); color:var(--bad);}
+
+.card{
+  background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
+  padding:18px 18px 8px; margin-bottom:16px;
+}
+.card-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; flex-wrap:wrap; gap:8px;}
+.card-title{font-size:14px; font-weight:600;}
+.legend{display:flex; gap:14px; font-size:12px; color:var(--ink-2);}
+.legend span{display:inline-flex; align-items:center; gap:5px;}
+.swatch{width:10px; height:10px; border-radius:2px; display:inline-block;}
+.chart-wrap{position:relative; height:320px; margin-top:8px;}
+
+table{width:100%; border-collapse:collapse; font-size:13px;}
+thead th{
+  text-align:left; font-size:11px; color:var(--ink-3); text-transform:uppercase;
+  letter-spacing:.03em; font-weight:500; padding:8px 6px; border-bottom:1px solid var(--line);
+}
+tbody td{padding:11px 6px; border-bottom:1px solid var(--line); color:var(--ink);}
+tbody tr:last-child td{border-bottom:none;}
+.id-cell{color:var(--ink-3); font-family:var(--mono);}
+.ts-cell{font-family:var(--mono); color:var(--ink-2);}
+.table-scroll{overflow-x:auto;}
+.empty{padding:28px 6px; text-align:center; color:var(--ink-3); font-size:13px;}
+</style>
+
+<div class="app" id="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-name">Monitoring system</div>
+      <div class="brand-sub">Vibration &middot; motor fleet</div>
+    </div>
+    <div class="nav-label">Motors</div>
+    <div id="motorList"></div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <div class="crumb" id="crumb">Home / Motor No.1</div>
+        <h1 id="motorTitle">Motor No.1</h1>
+      </div>
+      <div class="sensor-tabs" id="sensorTabs"></div>
+    </div>
+
+    <div class="stat-row" id="statRow"></div>
+
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title" id="chartTitle">Sensor 1 (Front) &mdash; frequency spectrum</div>
+        <div class="legend">
+          <span><i class="swatch" style="background:var(--x-axis)"></i>X axis</span>
+          <span><i class="swatch" style="background:var(--y-axis)"></i>Y axis</span>
+          <span><i class="swatch" style="background:var(--z-axis)"></i>Z axis</span>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="fftChart"></canvas></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div class="card-title">Recent readings</div></div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th style="width:70px">ID</th><th>Timestamp</th><th>Prediction</th></tr></thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+(function(){
+
+var MOTORS = [
+  {id:'m1', name:'Motor No.1', sensors:['Front','Rear'], status:'bad'},
+  {id:'m2', name:'Motor No.2', sensors:['Front','Rear'], status:'ok'},
+  {id:'m3', name:'Motor No.3', sensors:['Front'], status:'ok'},
+  {id:'m4', name:'Motor No.4', sensors:['Front','Rear'], status:'warn'},
+];
+
+var statusText = {ok:'Normal', warn:'Warning', bad:'Fault detected'};
+
+function seededRandom(seed){
+  var s = seed % 2147483647; if (s<=0) s += 2147483646;
+  return function(){ s = s*16807 % 2147483647; return (s-1)/2147483646; };
+}
+function hashStr(str){
+  var h=0; for (var i=0;i<str.length;i++){ h = (h*31 + str.charCodeAt(i)) | 0; }
+  return Math.abs(h) || 1;
+}
+
+// Generate a synthetic FFT-like spectrum: baseline noise + a few resonance peaks.
+function genSpectrum(key, opts){
+  var rand = seededRandom(hashStr(key));
+  var n = 240; // points from 0 to ~480 Hz
+  var freqs = []; for (var i=0;i<n;i++) freqs.push(i*2);
+  var peaks = opts.peaks; // [{f, amp, width}]
+  function series(baseNoise, jitter){
+    return freqs.map(function(f){
+      var v = baseNoise * rand() * (1 + jitter*(rand()-0.5));
+      peaks.forEach(function(p){
+        var d = (f - p.f)/p.width;
+        v += p.amp * Math.exp(-d*d) * (0.75 + 0.5*rand());
+      });
+      return Math.max(0, +v.toFixed(3));
+    });
+  }
+  return {
+    freqs: freqs,
+    x: series(0.045, 1.2),
+    y: series(0.03, 1.0),
+    z: series(0.03, 1.0),
+  };
+}
+
+function specForMotorSensor(motorId, sensor, status){
+  var key = motorId + '-' + sensor;
+  var basePeaks = [
+    {f: 8,  amp: status==='bad' ? 0.78 : 0.30, width: 4},
+    {f: 22, amp: status==='bad' ? 0.62 : 0.20, width: 6},
+    {f: 118,amp: status==='warn' ? 0.30 : 0.12, width: 10},
+  ];
+  return genSpectrum(key, {peaks: basePeaks});
+}
+
+function peakOf(arr, freqs){
+  var maxV=-1, maxI=0;
+  for (var i=0;i<arr.length;i++){ if (arr[i]>maxV){ maxV=arr[i]; maxI=i; } }
+  return {value:maxV, freq:freqs[maxI]};
+}
+function rmsOf(arr){
+  var sum=0; for (var i=0;i<arr.length;i++) sum += arr[i]*arr[i];
+  return Math.sqrt(sum/arr.length);
+}
+
+function fmtTime(d){
+  function p(n){return String(n).padStart(2,'0');}
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
+}
+
+function genTableRows(motorId, sensor, status, count){
+  var rand = seededRandom(hashStr(motorId+sensor+'rows'));
+  var rows = [];
+  var now = Date.now();
+  var statuses = status==='ok' ? ['ok','ok','ok','warn'] : status==='warn' ? ['warn','ok','warn','bad'] : ['bad','warn','bad','bad'];
+  for (var i=0;i<count;i++){
+    var t = new Date(now - i*15*60*1000 - Math.floor(rand()*30000));
+    var st = statuses[Math.floor(rand()*statuses.length)];
+    rows.push({
+      id: String(count-i).padStart(4,'0'),
+      ts: fmtTime(t),
+      status: st
+    });
+  }
+  return rows;
+}
+
+// ---- state ----
+var state = {motor: 'm1', sensor: 'Front'};
+try{
+  var saved = JSON.parse(localStorage.getItem('vm-dashboard-state') || 'null');
+  if (saved && saved.motor) state = saved;
+}catch(e){}
+
+var chart = null;
+
+function currentMotor(){
+  return MOTORS.find(function(m){return m.id===state.motor;}) || MOTORS[0];
+}
+
+function saveState(){
+  try{ localStorage.setItem('vm-dashboard-state', JSON.stringify(state)); }catch(e){}
+}
+
+function renderSidebar(){
+  var el = document.getElementById('motorList');
+  el.innerHTML = '';
+  MOTORS.forEach(function(m){
+    var div = document.createElement('div');
+    div.className = 'motor-item' + (m.id===state.motor ? ' active' : '');
+    div.innerHTML = '<span class="status-dot '+m.status+'"></span>' + m.name;
+    div.onclick = function(){
+      state.motor = m.id;
+      if (m.sensors.indexOf(state.sensor)===-1) state.sensor = m.sensors[0];
+      saveState(); renderAll();
+    };
+    el.appendChild(div);
+  });
+}
+
+function renderTabs(){
+  var motor = currentMotor();
+  var el = document.getElementById('sensorTabs');
+  el.innerHTML = '';
+  motor.sensors.forEach(function(s){
+    var div = document.createElement('div');
+    div.className = 'sensor-tab' + (s===state.sensor ? ' active' : '');
+    div.textContent = 'Sensor ' + (motor.sensors.indexOf(s)+1) + ' (' + s + ')';
+    div.onclick = function(){ state.sensor = s; saveState(); renderAll(); };
+    el.appendChild(div);
+  });
+}
+
+function renderHeader(){
+  var motor = currentMotor();
+  document.getElementById('crumb').textContent = 'Home / ' + motor.name;
+  document.getElementById('motorTitle').textContent = motor.name;
+  document.getElementById('chartTitle').textContent = 'Sensor ' + (motor.sensors.indexOf(state.sensor)+1) + ' (' + state.sensor + ') \u2014 frequency spectrum';
+}
+
+function pillHtml(status){
+  var label = statusText[status];
+  return '<span class="pill '+status+'">'+label+'</span>';
+}
+
+function renderStats(spec, motor){
+  var px = peakOf(spec.x, spec.freqs), py = peakOf(spec.y, spec.freqs), pz = peakOf(spec.z, spec.freqs);
+  var overallPeak = [ ['X',px], ['Y',py], ['Z',pz] ].sort(function(a,b){return b[1].value-a[1].value;})[0];
+  var rms = ((rmsOf(spec.x)+rmsOf(spec.y)+rmsOf(spec.z))/3).toFixed(3);
+
+  var cards = [
+    {label:'Overall status', value: pillHtml(motor.status), sub:'Sensor ' + state.sensor, isHtml:true},
+    {label:'Peak amplitude', value: overallPeak[1].value.toFixed(3)+' g', sub: overallPeak[0]+' axis'},
+    {label:'Dominant frequency', value: overallPeak[1].freq+' Hz', sub:'across X / Y / Z'},
+    {label:'RMS amplitude', value: rms+' g', sub:'0\u2013480 Hz band'},
+  ];
+  var el = document.getElementById('statRow');
+  el.innerHTML = '';
+  cards.forEach(function(c){
+    var div = document.createElement('div');
+    div.className = 'stat-card';
+    div.innerHTML = '<div class="stat-label">'+c.label+'</div>' +
+      '<div class="stat-value">'+(c.isHtml ? c.value : c.value)+'</div>' +
+      '<div class="stat-sub">'+c.sub+'</div>';
+    el.appendChild(div);
+  });
+}
+
+function renderChart(spec){
+  var ctx = document.getElementById('fftChart').getContext('2d');
+  var styles = getComputedStyle(document.documentElement);
+  var gridColor = styles.getPropertyValue('--line').trim();
+  var textColor = styles.getPropertyValue('--ink-2').trim();
+  var data = {
+    labels: spec.freqs,
+    datasets: [
+      {label:'X axis', data: spec.x, borderColor: styles.getPropertyValue('--x-axis').trim(), backgroundColor:'transparent', borderWidth:1.2, pointRadius:0, tension:0.15},
+      {label:'Y axis', data: spec.y, borderColor: styles.getPropertyValue('--y-axis').trim(), backgroundColor:'transparent', borderWidth:1.2, pointRadius:0, tension:0.15},
+      {label:'Z axis', data: spec.z, borderColor: styles.getPropertyValue('--z-axis').trim(), backgroundColor:'transparent', borderWidth:1.2, pointRadius:0, tension:0.15},
+    ]
+  };
+  var opts = {
+    responsive:true, maintainAspectRatio:false,
+    animation:{duration:250},
+    interaction:{mode:'index', intersect:false},
+    plugins:{ legend:{display:false}, tooltip:{
+      callbacks:{ title:function(items){ return items[0].label + ' Hz'; } }
+    } },
+    scales:{
+      x:{
+        title:{display:true, text:'Frequency (Hz)', color:textColor, font:{size:12}},
+        ticks:{color:textColor, font:{size:11}, maxTicksLimit:12, callback:function(v,i){ return spec.freqs[i]%50===0 ? spec.freqs[i] : ''; }},
+        grid:{color:gridColor}
+      },
+      y:{
+        title:{display:true, text:'Amplitude (g)', color:textColor, font:{size:12}},
+        ticks:{color:textColor, font:{size:11}},
+        grid:{color:gridColor}, beginAtZero:true
+      }
+    }
+  };
+  if (chart){ chart.data = data; chart.options = opts; chart.update(); }
+  else { chart = new Chart(ctx, {type:'line', data:data, options:opts}); }
+}
+
+function renderTable(motor){
+  var rows = genTableRows(motor.id, state.sensor, motor.status, 8);
+  var el = document.getElementById('tableBody');
+  if (!rows.length){
+    el.innerHTML = '<tr><td colspan="3" class="empty">No readings yet</td></tr>';
+    return;
+  }
+  el.innerHTML = rows.map(function(r){
+    return '<tr><td class="id-cell">'+r.id+'</td><td class="ts-cell">'+r.ts+'</td><td>'+pillHtml(r.status)+'</td></tr>';
+  }).join('');
+}
+
+function renderAll(){
+  var motor = currentMotor();
+  renderSidebar();
+  renderTabs();
+  renderHeader();
+  var spec = specForMotorSensor(motor.id, state.sensor, motor.status);
+  renderStats(spec, motor);
+  renderChart(spec);
+  renderTable(motor);
+}
+
+renderAll();
+})();
+</script>
